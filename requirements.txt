@@ -1,0 +1,7 @@
+kivy[full]
+opencv-python
+opencv-contrib-python
+reportlab
+tqdm
+Pillow
+stitching

@@ -21,6 +21,8 @@ import os
 
 from kivy.core.window import Window
 
+from stitching import Stitcher
+
 # Set the background color for the app
 Window.clearcolor = (0.8, 0.8, 0.8, 0.7)
 
@@ -57,10 +59,13 @@ class VideoPlayerApp(App):
         # Schedule the conversion function to run in the background
         Clock.schedule_once(lambda dt: self.perform_conversion(video_path, output_pdf), 0.1)
 
-    def perform_conversion(self, video_path, output_pdf):
-        frames = extract_frames(video_path, frame_rate=1, threshold=0.89)
-
-        frames_to_pdf(frames, output_pdf)
+    def perform_conversion(self, video_path, output_pdf, stitching=True):
+        if not stitching:
+            frames = extract_frames(video_path, frame_rate=1, threshold=0.89)
+            frames_to_pdf(frames, output_pdf)
+        else:
+            frames, _ = extract_frames_stitching(video_path)
+            frames_to_pdf_stitching(frames, output_pdf)
 
         # Close the pop-up
         self.conversion_popup.dismiss()
@@ -187,6 +192,39 @@ def extract_frames(video_path, frame_rate, threshold):
     print('Total Frames:', len(frames))
     return frames
 
+def extract_frames_stitching(video_path, frame_rate=12):
+    frames = []
+    cap = cv2.VideoCapture(video_path)
+    # Set the desired frame rate (in frames per second)
+    # Information of the video
+    fps = int(cap.get(cv2.CAP_PROP_FPS)) + 1
+    length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    print('Frames Per second', fps)
+    print('Total frame count', length)
+    print('Frames Extraction Started...')
+    seperate_count = 1
+    if length / frame_rate > 35:
+        seperate_count = int(length / frame_rate) + 1
+    frame_order = 0
+    first_frames = 0
+    while True:
+        ret, frame = cap.read()
+        if (frame_order + 3) % frame_rate == 0 or frame_order == length - 1:
+            frame = cv2.resize(frame, (480, 720),  cv2.INTER_AREA)
+            if first_frames > 2:
+                frame = frame[90:720, 0:480]
+            else:
+                first_frames += 1
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            frames.append(frame)
+        frame_order += 1
+        if not ret:
+            break
+    cap.release()
+    print('Frames Extraction Done!')
+    print('Total Frames:', len(frames))
+    return frames, seperate_count
+
 
 def is_similar(frame1, frame2, threshold=0.9):
     # Your similarity checking code here...
@@ -218,6 +256,72 @@ def frames_to_pdf(frames, output_pdf):
         img_reader = ImageReader(img_buffer)
 
         c.drawImage(img_reader, 0, 0, width=frame.shape[1], height=frame.shape[0])
+        c.showPage()
+
+    c.save()
+    print('PDF with frames created successfully!')
+
+
+def frames_to_pdf_stitching(frames, output_pdf):
+    # Your frames to PDF conversion code here...
+    stitcher1 = Stitcher(detector="sift", confidence_threshold=0.2)
+
+    start = 0
+    res_count = 0
+    res_frames = []
+    while start + 4 < len(frames):
+        try:
+            stitched = stitcher1.stitch(frames[start:start + 4])
+            res_frames.append(stitched)
+            res_count += 1
+            start += 4
+        except:
+            start += 4
+
+    # Add last frame
+    res_frames.append(frames[-1])
+    
+    stitcher2 = Stitcher(detector="sift")
+
+    final_res_frames = []
+    start = 0
+    break_condidtion = False
+    page_break = 6
+    while not break_condidtion:
+        if start + page_break < len(res_frames):
+            try:
+                final_res_frames.append(res_frames[start:start + page_break])
+                start += page_break
+            except:
+                pass
+        else:
+            final_res_frames.append(res_frames[start:])
+            break_condidtion = True
+    res_images = []
+    for imgs in final_res_frames:
+        if len(imgs) >= 3:
+            try:
+                res_images.append(stitcher2.stitch(imgs))
+            except:
+                for im in imgs:
+                    res_images.append(im)
+        else:
+            for im in imgs:
+                res_images.append(im)
+
+    canvas_init_width, canvas_init_height = res_images[0].shape[0], res_images[0].shape[1]
+    c = canvas.Canvas(output_pdf, pagesize=(canvas_init_width, canvas_init_height))
+    print('Frames to PDF Started...')
+    for idx, frame in enumerate(res_images):
+        img_buffer = BytesIO()
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
+        frame_rgb = cv2.rotate(frame_rgb, cv2.ROTATE_90_CLOCKWISE)
+        frame_pil = Image.fromarray(frame_rgb)  # Convert to PIL Image
+        frame_pil.save(img_buffer, format='JPEG')
+
+        img_buffer.seek(0)  # Move the cursor to the beginning of the buffer
+        img_reader = ImageReader(img_buffer)
+        c.drawImage(img_reader, 0, int(canvas_init_height - frame.shape[1]), width=frame.shape[0], height=frame.shape[1])
         c.showPage()
 
     c.save()
