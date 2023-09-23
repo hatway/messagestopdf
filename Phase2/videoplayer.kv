@@ -1,0 +1,71 @@
+<Mylayout>
+    name: 'screen3'
+    BoxLayout:
+        orientation: 'vertical'
+        size: root.width, root.height
+
+        padding: 20
+        spacing: 20
+
+        Video:
+            id: video_file
+            source: 'video1.mp4'
+            state: 'play'
+            options: {'eos': 'loop'}
+            size_hint: (1, 0.5)
+
+        RoundedButton:
+            id: convert_button
+            text: 'Convert to Pdf'
+            size_hint: (0.4, 0.1)
+            pos_hint: {'center_x': 0.5}
+            on_press: root.extract_frames_and_create_pdf()
+
+
+<RoundedButton@Button>
+    background_color: (0,0,0,0)
+    background_normal: ''
+    canvas.before:
+        Color:
+            rgba: (48/255,84/255,150/255,1) if self.state == 'normal' else (0.5, 0.5, 0.5, 1)
+        RoundedRectangle:
+            size: self.size
+            pos: self.pos
+            radius: [20]
+
+<CustomPopup>:
+    title: 'Rename and Save Pdf'
+    size_hint: None, None
+    size: 400, 200
+    auto_dismiss: False  # Prevent the popup from automatically closing when clicked outside
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 10
+
+        TextInput:
+            id: new_name
+            hint_text: 'Rename File'
+            size_hint_y: None
+            height: 40
+            multiline: False
+
+        BoxLayout:
+            orientation: 'horizontal'
+            spacing: 10
+
+            Button:
+                text: 'Save'
+                on_release: root.save_popup()
+
+            Button:
+                text: 'Cancel'
+                on_release: root.dismiss()
+
+        Label:
+            id: message_label
+            text: ''
+            size_hint_y: None
+            height: 40
+            color: 1, 0, 0, 1  # Red text color for the message
+            opacity: 0  # Initially set opacity to 0 (invisible)

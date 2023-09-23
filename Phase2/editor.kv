@@ -1,0 +1,39 @@
+<Videoeditor>
+    name: 'screen2'
+    video_name_input: video_name_input
+    start_time_input: start_time_input
+    end_time_input: end_time_input
+    output_label: output_label
+    cut_button: cut_button
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 15
+        size: root.width, root.height
+
+        TextInput:
+            id: video_name_input
+            hint_text: "Enter Video Name (e.g., abc.mp4)"
+
+        BoxLayout:
+            orientation: 'horizontal'
+            spacing: 15
+
+            TextInput:
+                id: start_time_input
+                hint_text: "Start Time (s)"
+                size_hint_x: 0.4
+
+            TextInput:
+                id: end_time_input
+                hint_text: "End Time (s)"
+                size_hint_x: 0.4
+
+        Button:
+            id: cut_button
+            text: "Cut Video"
+            on_press: root.cut_video()
+
+        Label:
+            id: output_label
