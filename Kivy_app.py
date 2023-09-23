@@ -192,31 +192,42 @@ def extract_frames(video_path, frame_rate, threshold):
     print('Total Frames:', len(frames))
     return frames
 
-def extract_frames_stitching(video_path, frame_rate=12):
+def extract_frames_stitching(video_path, frame_rate=24):
     frames = []
     cap = cv2.VideoCapture(video_path)
     # Set the desired frame rate (in frames per second)
     # Information of the video
     fps = int(cap.get(cv2.CAP_PROP_FPS)) + 1
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print('Frames Per second', fps)
     print('Total frame count', length)
     print('Frames Extraction Started...')
+    if(height > width):
+        print("Processing vertial video......")
+    else:
+        print("Processing horizontal video......")
+    print(f"Height {height}")
+    print(f"Width {width}")
     seperate_count = 1
     if length / frame_rate > 35:
         seperate_count = int(length / frame_rate) + 1
     frame_order = 0
     first_frames = 0
-    while True:
+    while frame_order < length:
         ret, frame = cap.read()
-        if (frame_order + 3) % frame_rate == 0 or frame_order == length - 1:
-            frame = cv2.resize(frame, (480, 720),  cv2.INTER_AREA)
-            if first_frames > 2:
-                frame = frame[90:720, 0:480]
-            else:
-                first_frames += 1
-            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            frames.append(frame)
+        try:
+            if (frame_order - 2) % frame_rate == 0 or frame_order == length - 1 or frame_order == 0:
+                # frame = cv2.resize(frame, (444, 960),  cv2.INTER_AREA)
+                if frame_order == 0:
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                else:
+                    frame = frame[int(height*.12):height, 0:width]
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                frames.append(frame)
+        except:
+            pass
         frame_order += 1
         if not ret:
             break
@@ -264,29 +275,30 @@ def frames_to_pdf(frames, output_pdf):
 
 def frames_to_pdf_stitching(frames, output_pdf):
     # Your frames to PDF conversion code here...
-    stitcher1 = Stitcher(detector="sift", confidence_threshold=0.2)
+    stitcher1 = Stitcher()
 
     start = 0
     res_count = 0
     res_frames = []
-    while start + 4 < len(frames):
+    page_break = 4
+    while start + page_break < len(frames):
         try:
-            stitched = stitcher1.stitch(frames[start:start + 4])
+            stitched = stitcher1.stitch(frames[start:start + page_break])
             res_frames.append(stitched)
             res_count += 1
-            start += 4
+            start += page_break
         except:
-            start += 4
+            start += page_break
 
     # Add last frame
     res_frames.append(frames[-1])
     
-    stitcher2 = Stitcher(detector="sift")
+    stitcher2 = Stitcher()
 
     final_res_frames = []
     start = 0
     break_condidtion = False
-    page_break = 6
+    page_break = 4
     while not break_condidtion:
         if start + page_break < len(res_frames):
             try:
